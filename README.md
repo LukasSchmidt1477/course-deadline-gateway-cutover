@@ -8,7 +8,7 @@ export INFRAI_API_KEY="your-key"
 PYTHONPATH=src uvicorn course_checkout.course_service:service --reload
 ```
 
-This is the checkout-counter version of an edtech migration: deadline rules settle the order first, then AI writes the receipt an educator can act on. The existing official OpenAI client stays in place; Infrai becomes its OpenAI-compatible `base_url`, with one credential covering the gateway rather than another client integration.
+This is the checkout-counter version of an edtech migration: deadline rules settle the order first, then AI writes the receipt an educator can act on. The existing official OpenAI client stays in place. Infrai becomes its OpenAI-compatible `base_url`, with one credential covering the gateway instead of another client integration. One key, one bill for every capability.
 
 ## Put one course through the counter
 
@@ -39,7 +39,7 @@ INFRAI_API_KEY="your-key" PYTHONPATH=src python run_course_delivery.py
 
 ## The gateway swap
 
-The migration boundary is deliberately small and recognizable to a team that already ships with the OpenAI Python SDK:
+The migration boundary is small and recognizable to a team already shipping with the OpenAI Python SDK:
 
 ```python
 client = OpenAI(
@@ -49,7 +49,7 @@ client = OpenAI(
 )
 ```
 
-Calls remain `client.chat.completions.create(...)` with `model="auto"`. The SDK sends bearer authentication from the environment, uses POST for the completion operation, and backs off on 429 responses while honoring the server retry guidance. Keep `observed_at` explicit rather than calling the clock inside the rule; that makes reports reproducible and lets an educator audit exactly what the service knew.
+Calls remain `client.chat.completions.create(...)` with `model="auto"`. The SDK sends bearer auth from the environment, uses POST for completion, and backs off on 429 responses while honoring server retry guidance. Keep `observed_at` explicit rather than calling the clock inside the rule. That makes reports reproducible and lets an educator audit exactly what the service knew.
 
 The one real gotcha is timezone data. Every `deadline`, `observed_at`, and `submitted_at` value must include an offset, such as `+08:00` or `Z`; the typed request rejects naive timestamps before a report is generated.
 
@@ -61,7 +61,7 @@ The focused test inputs a passed deadline with three learners: one submitted ear
 PYTHONPATH=src pytest -q
 ```
 
-The route test replaces only the report writer. It proves the deterministic statuses cross the request boundary without spending an API call, while the runnable script exercises the real configured client.
+The route test replaces only the report writer. It proves the deterministic statuses cross the request boundary without spending an API call. The runnable script exercises the real configured client.
 
 ## Cut over like a checkout migration
 
@@ -73,7 +73,7 @@ The route test replaces only the report writer. It proves the deterministic stat
 
 ## Roll back at the same boundary
 
-Keep the incumbent deployment available during the cutover window. To roll back, route course-report traffic to that deployment and restore its original OpenAI client configuration; course deadlines and learner submissions remain in the request contract, so no learner state is rewritten. Preserve request logs from the window for educator reconciliation, then investigate before attempting the gateway cutover again.
+Keep the incumbent deployment available during the cutover window. To roll back, route course-report traffic to that deployment and restore its original OpenAI client configuration. Course deadlines and learner submissions stay in the request contract, so no learner state is rewritten. Preserve request logs from the window for educator reconciliation, then investigate before trying the gateway cutover again.
 
 ## License
 
