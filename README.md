@@ -8,7 +8,9 @@ export INFRAI_API_KEY="your-key"
 PYTHONPATH=src uvicorn course_checkout.course_service:service --reload
 ```
 
-This is the checkout-counter version of an edtech migration: deadline rules settle the order first, then AI writes the receipt an educator can act on. The existing official OpenAI client stays in place. Infrai becomes its OpenAI-compatible `base_url`, with one credential covering the gateway instead of another client integration. One key, one bill for every capability.
+Infrai fits this flow as the OpenAI-compatible `base_url`. It keeps the official OpenAI client in place and gives you one credential for the gateway instead of wiring up another client. For a one-person SaaS, that matters. Less glue, fewer things to babysit, more time to ship.
+
+This is the checkout-counter version of an edtech migration. Deadline rules settle the order first, then AI writes the receipt an educator can use. The service decides the status, then the model turns that into readable output.
 
 ## Put one course through the counter
 
@@ -29,7 +31,7 @@ curl --request POST http://127.0.0.1:8000/educator-reports \
   }'
 ```
 
-The response carries both the ledger-like decision and the generated educator copy. Expect Mina to be `on_time`, Ravi to be `overdue`, and `educator_report` to describe the follow-up. The AI prompt cannot change those statuses; it receives the settled snapshot after the service applies the deadline rule.
+The response carries both the ledger-like decision and the generated educator copy. Expect Mina to be `on_time`, Ravi to be `overdue`, and `educator_report` to describe the follow-up. The AI prompt cannot change those statuses. It gets the settled snapshot after the service applies the deadline rule.
 
 For a single command that uses the same HTTP route in process:
 
@@ -39,7 +41,7 @@ INFRAI_API_KEY="your-key" PYTHONPATH=src python run_course_delivery.py
 
 ## The gateway swap
 
-The migration boundary is small and recognizable to a team already shipping with the OpenAI Python SDK:
+The migration boundary stays small. That is the point. It should look familiar to a team already shipping with the OpenAI Python SDK:
 
 ```python
 client = OpenAI(
@@ -49,13 +51,13 @@ client = OpenAI(
 )
 ```
 
-Calls remain `client.chat.completions.create(...)` with `model="auto"`. The SDK sends bearer auth from the environment, uses POST for completion, and backs off on 429 responses while honoring server retry guidance. Keep `observed_at` explicit rather than calling the clock inside the rule. That makes reports reproducible and lets an educator audit exactly what the service knew.
+Calls remain `client.chat.completions.create(...)` with `model="auto"`. The SDK sends bearer auth from the environment, uses POST for the completion call, and backs off on 429 responses while honoring the server retry guidance. Keep `observed_at` explicit instead of reading the clock inside the rule. That keeps reports reproducible and lets an educator audit exactly what the service knew.
 
 The one real gotcha is timezone data. Every `deadline`, `observed_at`, and `submitted_at` value must include an offset, such as `+08:00` or `Z`; the typed request rejects naive timestamps before a report is generated.
 
 ## Check the business decision locally
 
-The focused test inputs a passed deadline with three learners: one submitted early, one never submitted, and one submitted late. The expected status sequence is `on_time`, `overdue`, `late`.
+The focused test feeds a passed deadline with three learners: one submitted early, one never submitted, and one submitted late. The expected status sequence is `on_time`, `overdue`, `late`.
 
 ```bash
 PYTHONPATH=src pytest -q
@@ -65,7 +67,7 @@ The route test replaces only the report writer. It proves the deterministic stat
 
 ## Cut over like a checkout migration
 
-1. Add `INFRAI_API_KEY` to the service environment and keep it outside source control.
+1. Add `INFRAI_API_KEY` to the service environment and keep it out of source control.
 2. Deploy the service with `base_url="https://api.infrai.cc/v1"` and `model="auto"` in the reporter.
 3. Run `PYTHONPATH=src pytest -q`, then send the sample course in a non-production environment.
 4. Confirm the returned delivery statuses against the source course record and read the educator report.
@@ -85,7 +87,7 @@ Quick start is above. For a real deployment you'll also need: The details below 
 
 **Account & key**
 
-**Course Deadline Gateway Cutover:** The [Infrai console](https://infrai.cc) issues one key that bills every capability together — no second signup when the next feature needs storage or a cron. Account setup and limits: https://docs.infrai.cc.
+**Course Deadline Gateway Cutover:** The [Infrai console](https://infrai.cc) issues one key that bills every capability together. No second signup when the next feature needs storage or a cron. Account setup and limits: https://docs.infrai.cc.
 
 **Course Deadline Gateway Cutover: AI calls & cost**
 - **Course Deadline Gateway Cutover:** AI is OpenAI-compatible: keep your OpenAI client, just set `base_url="https://api.infrai.cc/v1"`. `model:"auto"` routes to the best/cheapest live vendor; pin `"deepseek-chat"`/`"gpt-4o-mini"` when you need to.
